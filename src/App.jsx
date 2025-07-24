@@ -11,7 +11,7 @@ function App() {
     setProfile('')
 
     try {
-      const res = await fetch('/active-profile')
+      const res = await fetch('/api/active-profile')
       if (!res.ok) {
         const text = await res.text()
         throw new Error(text || res.statusText)
