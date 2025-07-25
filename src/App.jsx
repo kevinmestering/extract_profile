@@ -27,10 +27,7 @@ function App() {
 
   return (
     <div style={{ padding: '2rem', fontFamily: 'sans-serif' }}>
-      <button
-        onClick={getActiveProfile}
-        style={{ padding: '.5rem 1rem', fontSize: '1rem' }}
-      >
+      <button onClick={getActiveProfile}>
         Get Active Profile
       </button>
 
@@ -39,7 +36,7 @@ function App() {
 
       {!loading && !error && profile && (
         <p id="current-profile-text" style={{ marginTop: '1rem', fontSize: '1.2rem' }}>
-          Current profile: <strong id="current-profile-text">{profile}</strong>
+          Current profile: <strong>{profile}</strong>
         </p>
       )}
     </div>
