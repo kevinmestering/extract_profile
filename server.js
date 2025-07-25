@@ -17,7 +17,9 @@ app.use(express.static(BUILD_DIR))
 
 // 2) API endpoint for active profile
 app.get('/api/active-profile', (req, res) => {
-  const roamBase  = path.join(os.homedir(), 'AppData','Roaming','Mozilla','Firefox','Profiles')
+  const roamBase  = process.env.PROFILE_BASE
+  ? path.resolve(process.env.PROFILE_BASE)
+  : path.join(os.homedir(), 'AppData','Roaming','Mozilla','Firefox','Profiles')
   const localBase = path.join(os.homedir(), 'AppData','Local', 'Mozilla','Firefox','Profiles')
 
   let dirs
