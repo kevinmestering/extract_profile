@@ -1,41 +1,43 @@
 // server.js
 import express from 'express'
-import puppeteer from 'puppeteer-core'
-import path from 'path'
-import os   from 'os'
+import path    from 'path'
 import { fileURLToPath } from 'url'
-import { dirname        } from 'path'
+import { dirname }        from 'path'
+import puppeteer from 'puppeteer-core'
 
+// ─── __dirname shim for ESM ───────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url)
 const __dirname  = dirname(__filename)
-const app        = express()
 
-// 1) Route: scrape about:support for Profile Folder
+// ─── Create Express app ─────────────────────────────────────────────────
+const app = express()
+
+// ─── 1) Serve your built front‑end (from dist/) ────────────────────────────
+app.use(express.static(path.join(__dirname, 'dist')))
+
+// ─── 2) API: launch headless Firefox & scrape about:support ───────────────
 app.get('/active-profile', async (req, res) => {
+  let browser
   try {
-    // 2) Launch Firefox via Puppeteer
-    const browser = await puppeteer.launch({
+    // Launch Firefox in headless mode
+    browser = await puppeteer.launch({
       headless: true,
       product: 'firefox',
-      // adjust this path if your firefox.exe lives elsewhere
-      executablePath: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
-      args: [
-        '--no-remote',              // don’t disturb your running instance
-        `-profile`,                 // launch with a throwaway profile
-        path.join(os.tmpdir(), 'pp_profile')
-      ]
+      executablePath: '/usr/bin/firefox-esr',  // Path inside your Docker image
+      args: ['--no-remote']
     })
 
     const page = await browser.newPage()
-    // 3) Go to about:support
+    // Navigate to the internal Firefox support page
     await page.goto('about:support', { waitUntil: 'domcontentloaded' })
 
-    // 4) Scrape the “Profile Folder” row
+    // Scrape the table row whose <th> text is "Profile Folder"
     const fullPath = await page.$$eval('tr', rows => {
-      for (const tr of rows) {
-        const th = tr.querySelector('th')
+      for (const row of rows) {
+        const th = row.querySelector('th')
         if (th && th.textContent.trim() === 'Profile Folder') {
-          return tr.querySelector('td')?.textContent.trim() || ''
+          const td = row.querySelector('td')
+          return td?.textContent.trim() || ''
         }
       }
       return ''
@@ -44,24 +46,28 @@ app.get('/active-profile', async (req, res) => {
     await browser.close()
 
     if (!fullPath) {
-      throw new Error('Could not find Profile Folder on about:support')
+      throw new Error('Could not find "Profile Folder" row on about:support')
     }
-    // 5) Extract only the final folder name (pr1, pr3, etc.)
+
+    // Extract only the last segment (e.g. "pr1")
     const profile = fullPath.split(/[\\/]/).pop()
     return res.json({ profile })
 
   } catch (err) {
-    console.error(err)
+    if (browser) {
+      try { await browser.close() } catch {}
+    }
+    console.error('Error in /active-profile:', err)
     return res.status(500).json({ error: err.message })
   }
 })
 
-// 6) Serve your React UI (after you’ve run `npm run build`)
-app.use(express.static(path.join(__dirname, 'dist')))
+// ─── 3) Fallback: serve index.html for any other route ───────────────────────
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'))
 })
 
+// ─── 4) Start the server ──────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`)
